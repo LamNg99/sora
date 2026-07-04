@@ -1,0 +1,11 @@
+{
+    "name": "sora",
+    "version": "1.0.0",
+    "description": "Sora CLI tool for managing Sora projects",
+    "workspaces": [
+        "packages/*"
+    ],
+    "scripts": {
+        "dev:cli": "bun run --watch packages/cli/src/index.tsx"
+    }
+}
