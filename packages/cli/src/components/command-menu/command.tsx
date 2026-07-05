@@ -5,6 +5,11 @@ export const COMMANDS: Command[] = [
     name: 'new',
     description: 'Start a new conversation',
     value: '/new',
+    action: (ctx) => {
+      ctx.toast.show({
+        message: 'Starting a new conversation...',
+      });
+    },
   },
   {
     name: 'exit',

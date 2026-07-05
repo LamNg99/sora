@@ -1,7 +1,7 @@
-export type ToastType = 'info' | 'success' | 'error';
+export type ToastVariant = 'info' | 'success' | 'error';
 
 export type ToastOptions = {
-  type: ToastType;
+  variant?: ToastVariant;
   message: string;
   duration?: number;
 };
