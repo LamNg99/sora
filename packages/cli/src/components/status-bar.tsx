@@ -1,20 +1,13 @@
-import { TextAttributes } from "@opentui/core";
+import { TextAttributes } from '@opentui/core';
 
 export function StatusBar() {
   return (
-    <box
-      flexDirection="row"
-      gap={1}
-    >
-    <text fg="cyan">
-        Agent
-      </text>
+    <box flexDirection="row" gap={1}>
+      <text fg="cyan">Agent</text>
       <text attributes={TextAttributes.DIM} fg="gray">
         ❯
       </text>
-      <text>
-        opus-4.6
-      </text>
+      <text>opus-4.6</text>
     </box>
   );
 }

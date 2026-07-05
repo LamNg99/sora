@@ -1,11 +1,28 @@
 {
-    "name": "sora",
-    "version": "1.0.0",
-    "description": "Sora CLI tool for managing Sora projects",
-    "workspaces": [
-        "packages/*"
-    ],
-    "scripts": {
-        "dev:cli": "bun run --watch packages/cli/src/index.tsx"
-    }
+  "name": "sora",
+  "version": "1.0.0",
+  "description": "Sora CLI tool for managing Sora projects",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:cli": "bun run --watch packages/cli/src/index.tsx",
+    "lint": "eslint . --max-warnings=0",
+    "format": "prettier --write .",
+    "lint:fix": "eslint . --fix",
+    "typecheck": "tsc -p packages/cli/tsconfig.json --noEmit",
+    "check": "bun run lint && bun run typecheck"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@typescript-eslint/eslint-plugin": "^8.62.1",
+    "@typescript-eslint/parser": "^8.62.1",
+    "eslint": "^10.6.0",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.7.0",
+    "prettier": "^3.9.4",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.62.1"
+  }
 }
