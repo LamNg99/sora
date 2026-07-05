@@ -5,7 +5,20 @@ import globals from 'globals';
 
 export default tseslint.config(
   {
-    ignores: ['node_modules', 'dist', 'coverage', 'bun.lock'],
+    ignores: [
+      'node_modules',
+      'dist',
+      'build',
+      '.turbo',
+      '.next',
+      'coverage',
+      '.venv',
+      '*.log',
+      'packages/**/dist',
+      '.git',
+      'bun.lock',
+      '.eslintrc.cjs',
+    ],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,

@@ -1,3 +1,4 @@
+import { ThemeDialogContent } from '../../dialogs';
 import type { Command } from './types';
 
 export const COMMANDS: Command[] = [
@@ -8,6 +9,28 @@ export const COMMANDS: Command[] = [
     action: (ctx) => {
       ctx.toast.show({
         message: 'Starting a new conversation...',
+      });
+    },
+  },
+  {
+    name: 'agents',
+    description: 'Switch agents',
+    value: '/agents',
+    action: (ctx) => {
+      ctx.dialog.open({
+        title: 'Select Mode',
+        children: <text>Agent Selection comming soon...</text>,
+      });
+    },
+  },
+  {
+    name: 'theme',
+    description: 'Change color theme',
+    value: '/theme',
+    action: (ctx) => {
+      ctx.dialog.open({
+        title: 'Select Theme',
+        children: <ThemeDialogContent />,
       });
     },
   },
