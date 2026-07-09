@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
-import { db } from '@sora/database';
+import { db } from '@sora/database/client';
 import { Role, Mode, MessageStatus } from '@sora/database/enums';
 import { findSupportedChatModel, type SupportedChatModelId } from '@sora/shared';
 
