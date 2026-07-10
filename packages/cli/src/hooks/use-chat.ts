@@ -81,29 +81,32 @@ export function useChat(sessionId: string, initialMessages: Message[] = []) {
     [isActiveRequest],
   );
 
-  const captureInterruptedMessage = useCallback((activeStream: ActiveStream) => {
-    if (activeStream.interruptedCaptured || activeStream.parts.length === 0) return;
+  const captureInterruptedMessage = useCallback(
+    (activeStream: ActiveStream) => {
+      if (activeStream.interruptedCaptured || activeStream.parts.length === 0) return;
 
-    activeStream.interruptedCaptured = true;
-    const parts = [...activeStream.parts];
-    const fullText = parts
-      .filter((p) => p.type === 'text')
-      .map((p) => p.text)
-      .join('');
+      activeStream.interruptedCaptured = true;
+      const parts = [...activeStream.parts];
+      const fullText = parts
+        .filter((p) => p.type === 'text')
+        .map((p) => p.text)
+        .join('');
 
-    updateMessages((prev) => [
-      ...prev,
-      {
-        id: crypto.randomUUID(),
-        role: 'assistant',
-        content: fullText,
-        mode: activeStream.mode,
-        model: activeStream.model,
-        parts,
-        interrupted: true,
-      },
-    ]);
-  }, []);
+      updateMessages((prev) => [
+        ...prev,
+        {
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content: fullText,
+          mode: activeStream.mode,
+          model: activeStream.model,
+          parts,
+          interrupted: true,
+        },
+      ]);
+    },
+    [updateMessages],
+  );
 
   const clearStream = useCallback(
     (requestId: string) => {
