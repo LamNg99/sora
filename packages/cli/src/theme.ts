@@ -1,6 +1,6 @@
 export type ThemeColors = {
   primary: string;
-  planMode: string;
+  askMode: string;
   selected: string;
   thinking: string;
   success: string;
@@ -23,7 +23,7 @@ export const THEMES: Theme[] = [
     name: 'Nightfox',
     colors: {
       primary: '#7aa2f7',
-      planMode: '#7aa2f7',
+      askMode: '#7aa2f7',
       selected: '#7aa2f7',
       thinking: '#7aa2f7',
       success: '#9ece6a',
@@ -40,7 +40,7 @@ export const THEMES: Theme[] = [
     name: 'Rosé Pine',
     colors: {
       primary: '#c4a7e7',
-      planMode: '#c4a7e7',
+      askMode: '#c4a7e7',
       selected: '#c4a7e7',
       thinking: '#c4a7e7',
       success: '#31748f',
@@ -57,7 +57,7 @@ export const THEMES: Theme[] = [
     name: 'Catppuccin Mocha',
     colors: {
       primary: '#cba6f7',
-      planMode: '#cba6f7',
+      askMode: '#cba6f7',
       selected: '#cba6f7',
       thinking: '#cba6f7',
       success: '#a6e3a1',
@@ -74,7 +74,7 @@ export const THEMES: Theme[] = [
     name: 'Claude Code',
     colors: {
       primary: '#da7756',
-      planMode: '#da7756',
+      askMode: '#da7756',
       selected: '#da7756',
       thinking: '#da7756',
       success: '#7db88f',
