@@ -1,4 +1,10 @@
-import { ThemeDialogContent } from '../../dialogs';
+import {
+  ThemeDialogContent,
+  SessionsDialogContent,
+  AgentsDialogContent,
+  ModelsDialogContent,
+} from '../../dialogs';
+import { SUPPORTED_CHAT_MODELS } from '@sora/shared';
 import type { Command } from './types';
 
 export const COMMANDS: Command[] = [
@@ -7,9 +13,7 @@ export const COMMANDS: Command[] = [
     description: 'Start a new conversation',
     value: '/new',
     action: (ctx) => {
-      ctx.toast.show({
-        message: 'Starting a new conversation...',
-      });
+      ctx.navigate('/');
     },
   },
   {
@@ -19,7 +23,34 @@ export const COMMANDS: Command[] = [
     action: (ctx) => {
       ctx.dialog.open({
         title: 'Select Mode',
-        children: <text>Agent Selection comming soon...</text>,
+        children: <AgentsDialogContent currentMode={ctx.mode} onSelectMode={ctx.setMode} />,
+      });
+    },
+  },
+  {
+    name: 'models',
+    description: 'Switch models',
+    value: '/models',
+    action: (ctx) => {
+      ctx.dialog.open({
+        title: 'Select Model',
+        children: (
+          <ModelsDialogContent
+            models={SUPPORTED_CHAT_MODELS.map((model) => model.id)}
+            onSelectModel={ctx.setModel}
+          />
+        ),
+      });
+    },
+  },
+  {
+    name: 'sessions',
+    description: 'Switch sessions',
+    value: '/sessions',
+    action: (ctx) => {
+      ctx.dialog.open({
+        title: 'Select Session',
+        children: <SessionsDialogContent />,
       });
     },
   },

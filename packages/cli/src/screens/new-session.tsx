@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { z } from 'zod';
-import { DEFAULT_CHAT_MODEL_ID } from '@sora/shared';
 import { useLocation, useNavigate } from 'react-router';
 import { SessionShell } from '../components/session-shell';
 import { UserMessage } from '../components/messages';
 import { useToast } from '../providers/toast';
 import { apiClient } from '../lib/api-client';
 import { getErrorMessage } from '../lib/http-errors';
+import { usePromptConfig } from '../providers/prompt-config';
 
 const newSessionSchema = z.object({
   message: z.string(),
@@ -16,6 +16,7 @@ export function NewSession() {
   const navigate = useNavigate();
   const location = useLocation();
   const toast = useToast();
+  const { mode, model } = usePromptConfig();
   const hasStartedRef = useRef(false);
 
   const state = useMemo(() => {
@@ -44,8 +45,8 @@ export function NewSession() {
             initialMessage: {
               role: 'USER',
               content: state.message,
-              mode: 'AGENT',
-              model: DEFAULT_CHAT_MODEL_ID,
+              mode,
+              model,
             },
           },
         });

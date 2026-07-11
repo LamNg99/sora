@@ -4,7 +4,7 @@ import type { InferResponseType } from 'hono';
 import { apiClient } from '../lib/api-client';
 import { z } from 'zod';
 import prettyMs from 'pretty-ms';
-import { DEFAULT_CHAT_MODEL_ID, type SupportedChatModelId } from '@sora/shared';
+import type { SupportedChatModelId } from '@sora/shared';
 import { BotMessage, UserMessage } from '../components/messages';
 import { useChat } from '../hooks/use-chat';
 import type { Message } from '../hooks/use-chat';
@@ -14,12 +14,18 @@ import { getErrorMessage } from '../lib/http-errors';
 import { MessageStatus } from '@sora/database/enums';
 import { useKeyboard } from '@opentui/react';
 import { useKeyboardLayer } from '../providers/keyboard-layer';
+import { usePromptConfig } from '../providers/prompt-config';
 
 type SessionData = InferResponseType<(typeof apiClient.sessions)[':id']['$get'], 200>;
 
 const sessionLocationSchema = z.object({
   session: z.custom<SessionData>(
-    (value) => value != null && typeof value === 'object' && 'id' in value,
+    (value) =>
+      value != null &&
+      typeof value === 'object' &&
+      'id' in value &&
+      'messages' in value &&
+      Array.isArray((value as SessionData).messages),
   ),
 });
 
@@ -45,7 +51,7 @@ function mapDbMeassages(dbMessages: SessionData['messages']): Message[] {
 
     return {
       id: msg.id,
-      role: 'user',
+      role: 'assistant',
       content: msg.content,
       mode: msg.mode,
       model: msg.model as SupportedChatModelId,
@@ -85,6 +91,7 @@ function ChatMessage({ msg }: { msg: Message }) {
 function SessionChat({ session }: { session: SessionData }) {
   const [initialMessages] = useState(() => mapDbMeassages(session.messages));
   const { isTopLayer } = useKeyboardLayer();
+  const { mode, model } = usePromptConfig();
   const { messages, streaming, submit, abort, interrupt } = useChat(session.id, initialMessages);
 
   useEffect(() => {
@@ -103,8 +110,8 @@ function SessionChat({ session }: { session: SessionData }) {
       onSubmit={(text) =>
         submit({
           userText: text,
-          mode: 'AGENT',
-          model: DEFAULT_CHAT_MODEL_ID,
+          mode,
+          model,
         })
       }
       loading={streaming.status === 'streaming'}
