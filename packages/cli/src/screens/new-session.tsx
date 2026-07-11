@@ -6,17 +6,18 @@ import { UserMessage } from '../components/messages';
 import { useToast } from '../providers/toast';
 import { apiClient } from '../lib/api-client';
 import { getErrorMessage } from '../lib/http-errors';
-import { usePromptConfig } from '../providers/prompt-config';
+import { Mode } from '@sora/database/enums';
 
 const newSessionSchema = z.object({
   message: z.string(),
+  mode: z.enum(Mode),
+  model: z.string(),
 });
 
 export function NewSession() {
   const navigate = useNavigate();
   const location = useLocation();
   const toast = useToast();
-  const { mode, model } = usePromptConfig();
   const hasStartedRef = useRef(false);
 
   const state = useMemo(() => {
@@ -45,8 +46,8 @@ export function NewSession() {
             initialMessage: {
               role: 'USER',
               content: state.message,
-              mode,
-              model,
+              mode: state.mode,
+              model: state.model,
             },
           },
         });
@@ -79,7 +80,7 @@ export function NewSession() {
 
   return (
     <SessionShell onSubmit={() => {}} inputDisabled loading>
-      <UserMessage message={state.message} />
+      <UserMessage message={state.message} mode={state.mode} />
     </SessionShell>
   );
 }

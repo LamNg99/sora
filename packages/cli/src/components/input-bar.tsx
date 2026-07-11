@@ -12,7 +12,6 @@ import { useKeyboardLayer } from '../providers/keyboard-layer';
 import { useDialog } from '../providers/dialog';
 import { useTheme } from '../providers/theme';
 import { usePromptConfig } from '../providers/prompt-config';
-import { Mode } from '@sora/database/enums';
 
 type Props = {
   onSubmit: (text: string) => void;

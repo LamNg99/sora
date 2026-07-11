@@ -8,6 +8,7 @@ import {
   type SupportedChatModelId,
   type SupportedProvider,
 } from '@sora/shared';
+import type { ProviderOptions } from '@ai-sdk/provider-utils';
 import type { LanguageModel } from 'ai';
 
 type AnthropicModelId = Extract<SupportedChatModel, { provider: 'anthropic' }>['id'];
@@ -19,7 +20,9 @@ const anthropic = createAnthropic({
 });
 
 const openai = createOpenAI({
-  ...(process.env.OPENAI_BASE_URL ? { baseURL: process.env.OPENAI_BASE_URL } : {}),
+  ...(process.env.OPENAI_BASE_URL
+    ? { baseURL: process.env.OPENAI_BASE_URL, compatibility: 'compatible' }
+    : {}),
 });
 
 const google = createGoogleGenerativeAI({
@@ -30,7 +33,29 @@ export type ResolvedModel = {
   model: LanguageModel;
   provider: SupportedProvider;
   id: SupportedChatModelId;
+  providerOptions?: ProviderOptions;
 };
+
+const ANTHROPIC_PROVIDER_OPTIONS: Partial<Record<AnthropicModelId, ProviderOptions>> = {
+  'claude-opus-4-6': {
+    anthropic: {
+      thinking: {
+        type: 'enabled',
+        budgetTokens: 1000,
+      },
+    },
+  },
+  'claude-sonet-4-6': {
+    anthropic: {
+      thinking: {
+        type: 'enabled',
+        budgetTokens: 1000,
+      },
+    },
+  },
+};
+
+const OPENAI_PROVIDER_OPTIONS: Partial<Record<OpenAIModelId, ProviderOptions>> = {};
 
 function assertUnsupportedModel(provider: never): never {
   throw new Error(`Unsupported provider: ${provider}`);
@@ -41,6 +66,7 @@ function resolveAnthropicModel(modelId: AnthropicModelId): ResolvedModel {
     model: anthropic(modelId),
     provider: 'anthropic',
     id: modelId,
+    providerOptions: ANTHROPIC_PROVIDER_OPTIONS[modelId],
   };
 }
 
@@ -49,6 +75,7 @@ function resolveOpenAIModel(modelId: OpenAIModelId): ResolvedModel {
     model: openai(modelId),
     provider: 'openai',
     id: modelId,
+    providerOptions: OPENAI_PROVIDER_OPTIONS[modelId],
   };
 }
 

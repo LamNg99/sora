@@ -1,7 +1,6 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback } from 'react';
 import { useDialog } from '../providers/dialog';
 import { DialogSearchList } from '../components/dialog-search-list';
-import { Mode } from '@sora/database/enums';
 import type { SupportedChatModelId } from '@sora/shared';
 
 type ModelsDialogContentProps = {

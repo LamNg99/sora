@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { TextAttributes } from '@opentui/core';
 import { format } from 'date-fns';
 import { useNavigate } from 'react-router';

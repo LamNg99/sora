@@ -1,11 +1,13 @@
 import { TextAttributes } from '@opentui/core';
 import { useTheme } from '../../providers/theme';
+import { Mode } from '@sora/database/enums';
 
 type UserMessageProps = {
   message: string;
+  mode: Mode;
 };
 
-export function UserMessage({ message }: UserMessageProps) {
+export function UserMessage({ message, mode }: UserMessageProps) {
   const { colors } = useTheme();
 
   return (

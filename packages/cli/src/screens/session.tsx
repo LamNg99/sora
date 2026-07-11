@@ -4,10 +4,10 @@ import type { InferResponseType } from 'hono';
 import { apiClient } from '../lib/api-client';
 import { z } from 'zod';
 import prettyMs from 'pretty-ms';
-import type { SupportedChatModelId } from '@sora/shared';
-import { BotMessage, UserMessage } from '../components/messages';
+import { messagePartsSchema, type SupportedChatModelId } from '@sora/shared';
+import { BotMessage, ErrorMessage, UserMessage } from '../components/messages';
 import { useChat } from '../hooks/use-chat';
-import type { Message } from '../hooks/use-chat';
+import type { ClientMessagePart, Message } from '../hooks/use-chat';
 import { useToast } from '../providers/toast';
 import { useEffect, useMemo, useState } from 'react';
 import { getErrorMessage } from '../lib/http-errors';
@@ -49,18 +49,20 @@ function mapDbMeassages(dbMessages: SessionData['messages']): Message[] {
       };
     }
 
+    const parsedParts = msg.parts == null ? null : messagePartsSchema.safeParse(msg.parts);
+    const parts: ClientMessagePart[] = parsedParts?.success
+      ? parsedParts.data.map((p) =>
+          p.type === 'tool-call' ? { ...p, status: 'done' as const } : p,
+        )
+      : [];
+
     return {
       id: msg.id,
       role: 'assistant',
       content: msg.content,
       mode: msg.mode,
       model: msg.model as SupportedChatModelId,
-      parts: [
-        {
-          type: 'text',
-          text: msg.content,
-        },
-      ],
+      parts,
       ...(msg.duration != null ? { duration: prettyMs(msg.duration * 1000) } : {}),
       interrupted: msg.status === MessageStatus.INTERRUPTED,
     };
@@ -69,11 +71,11 @@ function mapDbMeassages(dbMessages: SessionData['messages']): Message[] {
 
 function ChatMessage({ msg }: { msg: Message }) {
   if (msg.role === 'user') {
-    return <UserMessage message={msg.content} />;
+    return <UserMessage message={msg.content} mode={msg.mode} />;
   }
 
   if (msg.role === 'error') {
-    return <UserMessage message={msg.content} />;
+    return <ErrorMessage message={msg.content} />;
   }
 
   return (
