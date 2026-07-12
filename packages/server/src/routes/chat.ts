@@ -16,6 +16,10 @@ import {
 import { createTools } from '../tools';
 import { isSupportedChatModel, resolveChatModel } from '../lib/models';
 import { buildSystemPrompt } from '../system-prompt';
+import type { LanguageModelUsage } from 'ai';
+import { requireCreditsBalance } from '../middleware/require-credits-balance';
+import { calculateCreditsForUsage } from '../lib/credits';
+import { ingestAiUsage } from '../lib/polar';
 
 const submitSchema = z.object({
   content: z.string(),
@@ -59,6 +63,7 @@ function getResumableUserMessage(
 
 type StreamParams = {
   sessionId: string;
+  userId: string;
   model: string;
   cwd: string | null;
   history: { role: 'user' | 'assistant'; content: string }[];
@@ -66,15 +71,21 @@ type StreamParams = {
   abortController: AbortController;
 };
 
+type IngestUsageForMessageParams = {
+  messageId: string;
+  status: 'complete' | 'interrupted';
+};
+
 async function streamResponse(
   stream: Parameters<Parameters<typeof streamSSE>[1]>[0],
   params: StreamParams,
 ) {
-  const { sessionId, model, cwd, history, mode, abortController } = params;
+  const { sessionId, userId, model, cwd, history, mode, abortController } = params;
   const startTime = Date.now();
   const tools = cwd ? createTools(cwd, mode) : undefined;
   const parts: MessagePart[] = [];
   const resolvedModel = resolveChatModel(model);
+  let completeUsage: LanguageModelUsage | null = null;
 
   const persistInterruptedMessage = async () => {
     const fullText = parts
@@ -88,7 +99,7 @@ async function streamResponse(
     const validatedParts: Prisma.InputJsonArray | undefined =
       parts.length > 0 ? messagePartSchema.array().parse(parts) : undefined;
 
-    await db.message.create({
+    return await db.message.create({
       data: {
         sessionId,
         role: 'ASSISTANT',
@@ -102,6 +113,41 @@ async function streamResponse(
     });
   };
 
+  const ingestUsageForMessage = async ({ messageId, status }: IngestUsageForMessageParams) => {
+    if (!completeUsage) return;
+
+    try {
+      const billableUsage = calculateCreditsForUsage({
+        provider: resolvedModel.provider,
+        model: resolvedModel.id,
+        usage: completeUsage,
+      });
+
+      await ingestAiUsage({
+        externalCustomerId: userId,
+        eventId: `chat-messages:${messageId}`,
+        credits: billableUsage.credits,
+      });
+    } catch (error) {
+      console.error('Failed to ingest AI usage for message', {
+        error,
+        sessionId,
+        messageId,
+        userId,
+      });
+    }
+  };
+
+  const persistInterruptedMessageAndUsage = async () => {
+    const interruptedMessage = await persistInterruptedMessage();
+    if (!interruptedMessage) return;
+
+    await ingestUsageForMessage({
+      messageId: interruptedMessage.id,
+      status: 'interrupted',
+    });
+  };
+
   try {
     const result = aiStreamText({
       model: resolvedModel.model,
@@ -111,6 +157,9 @@ async function streamResponse(
       stopWhen: tools ? stepCountIs(50) : undefined,
       abortSignal: abortController.signal,
       providerOptions: resolvedModel.providerOptions,
+      onFinish(event) {
+        completeUsage = event.usage;
+      },
     });
 
     for await (const part of result.stream) {
@@ -188,7 +237,7 @@ async function streamResponse(
     }
 
     if (stream.aborted || abortController.signal.aborted) {
-      await persistInterruptedMessage();
+      await persistInterruptedMessageAndUsage();
       return;
     }
 
@@ -214,6 +263,11 @@ async function streamResponse(
       },
     });
 
+    await ingestUsageForMessage({
+      messageId: assistantMessage.id,
+      status: 'complete',
+    });
+
     const doneEvent: ChatStreamEvent = {
       type: 'done',
       messageId: assistantMessage.id,
@@ -223,7 +277,7 @@ async function streamResponse(
     await stream.writeSSE({ event: 'done', data: JSON.stringify(doneEvent) });
   } catch (error) {
     if (abortController.signal.aborted) {
-      await persistInterruptedMessage();
+      await persistInterruptedMessageAndUsage();
       return;
     }
 
@@ -298,6 +352,7 @@ const app = new Hono<AuthenticatedEnv>()
           try {
             await streamResponse(stream, {
               sessionId,
+              userId,
               model: resumableUserMessage.model,
               cwd: session.cwd,
               history,
@@ -323,7 +378,7 @@ const app = new Hono<AuthenticatedEnv>()
       throw error;
     }
   })
-  .post('/:sessionId', submitValidator, async (c) => {
+  .post('/:sessionId', requireCreditsBalance, submitValidator, async (c) => {
     const sessionId = c.req.param('sessionId');
     const userId = c.get('userId');
 
@@ -373,6 +428,7 @@ const app = new Hono<AuthenticatedEnv>()
 
         await streamResponse(stream, {
           sessionId,
+          userId,
           model: data.model,
           cwd: session.cwd,
           history,

@@ -187,8 +187,10 @@ async function getMentionCandidates(query: string): Promise<MentionCandidate[]> 
 
     await visit(CURRENT_DIRECTORY, '');
     return FallbackMatches.sort((left, right) => left.path.localeCompare(right.path));
-  } catch {}
-  return [];
+  } catch {
+    // If we can't read the directory (e.g., permission denied), return an empty list.
+    return [];
+  }
 }
 
 type FileMentionMenuProps = {
@@ -444,7 +446,7 @@ export function InputBar({ onSubmit, disabled = false }: Props) {
     return () => {
       ignored = true;
     };
-  }, [activeMention, getMentionCandidates]);
+  }, [activeMention]);
 
   useEffect(() => {
     const textarea = textareaRef.current;

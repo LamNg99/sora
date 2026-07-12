@@ -4,8 +4,9 @@ import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
 import { db } from '@sora/database/client';
 import { Role, Mode, MessageStatus } from '@sora/database/enums';
-import { findSupportedChatModel, type SupportedChatModelId } from '@sora/shared';
 import type { AuthenticatedEnv } from '../middleware/require-auth';
+import { requireCreditsBalance } from '../middleware/require-credits-balance';
+import { isSupportedChatModel } from '../lib/models';
 
 const createSessionSchema = z.object({
   title: z.string(),
@@ -15,9 +16,7 @@ const createSessionSchema = z.object({
       role: z.enum(Role),
       content: z.string(),
       mode: z.enum(Mode),
-      model: z.string().refine((id) => !!findSupportedChatModel(id as SupportedChatModelId), {
-        message: 'Unsupported chat model',
-      }),
+      model: z.string().refine(isSupportedChatModel, 'Unsupported model'),
     })
     .optional(),
 });
@@ -85,7 +84,7 @@ const app = new Hono<AuthenticatedEnv>()
 
     return c.json(session);
   })
-  .post('/', createSessionValidator, async (c) => {
+  .post('/', requireCreditsBalance, createSessionValidator, async (c) => {
     const userId = c.get('userId');
     const { initialMessage, ...data } = c.req.valid('json');
 

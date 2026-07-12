@@ -17,6 +17,7 @@
     "@ai-sdk/provider-utils": "^5.0.7",
     "@clerk/backend": "^3.11.4",
     "@hono/zod-validator": "^0.8.0",
+    "@polar-sh/sdk": "^0.48.1",
     "@sentry/bun": "^10.64.0",
     "@sentry/hono": "^10.64.0",
     "@sora/database": "workspace:*",
