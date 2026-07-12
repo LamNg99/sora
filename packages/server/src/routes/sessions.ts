@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { db } from '@sora/database/client';
 import { Role, Mode, MessageStatus } from '@sora/database/enums';
 import { findSupportedChatModel, type SupportedChatModelId } from '@sora/shared';
+import type { AuthenticatedEnv } from '../middleware/require-auth';
 
 const createSessionSchema = z.object({
   title: z.string(),
@@ -33,9 +34,12 @@ const createSessionValidator = zValidator('json', createSessionSchema, (result, 
   }
 });
 
-const app = new Hono()
+const app = new Hono<AuthenticatedEnv>()
   .get('/', async (c) => {
+    const userId = c.get('userId');
+
     const sessions = await db.session.findMany({
+      where: { userId },
       orderBy: { createdAt: 'desc' },
       select: {
         id: true,
@@ -55,9 +59,10 @@ const app = new Hono()
 
     // throw new HTTPException(500, { message: 'Mock server error' });
     const id = c.req.param('id');
+    const userId = c.get('userId');
 
     const session = await db.session.findUnique({
-      where: { id },
+      where: { id, userId },
       include: {
         messages: {
           orderBy: { createdAt: 'asc' },
@@ -68,7 +73,7 @@ const app = new Hono()
     if (!session) {
       Sentry.logger.warn('Session not found', {
         sessionId: id,
-        userId: 'mock-user-id', // TODO: Replace with actual user ID from auth
+        userId,
       });
 
       return c.json({ message: 'Session not found' }, 404);
@@ -81,12 +86,13 @@ const app = new Hono()
     return c.json(session);
   })
   .post('/', createSessionValidator, async (c) => {
+    const userId = c.get('userId');
     const { initialMessage, ...data } = c.req.valid('json');
 
     const session = await db.session.create({
       data: {
         ...data,
-        userId: 'mock-user-id', // TODO: Replace with actual user ID from auth
+        userId,
         ...(initialMessage && {
           messages: {
             create: { ...initialMessage, status: MessageStatus.COMPLETE },
@@ -101,7 +107,7 @@ const app = new Hono()
     Sentry.logger.info('Created new session', {
       sessionId: session.id,
       title: session.title,
-      userId: 'mock-user-id', // TODO: Replace with actual user ID from auth
+      userId,
     });
 
     return c.json(session, 201);

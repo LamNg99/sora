@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import type { AuthenticatedEnv } from '../middleware/require-auth';
 import { streamSSE } from 'hono/streaming';
 import { zValidator } from '@hono/zod-validator';
 import { z } from 'zod';
@@ -248,12 +249,13 @@ async function streamResponse(
   }
 }
 
-const app = new Hono()
+const app = new Hono<AuthenticatedEnv>()
   .post('/:sessionId/resume', async (c) => {
     const sessionId = c.req.param('sessionId');
+    const userId = c.get('userId');
 
     const session = await db.session.findUnique({
-      where: { id: sessionId },
+      where: { id: sessionId, userId },
       include: {
         messages: {
           orderBy: { createdAt: 'asc' },
@@ -323,9 +325,10 @@ const app = new Hono()
   })
   .post('/:sessionId', submitValidator, async (c) => {
     const sessionId = c.req.param('sessionId');
+    const userId = c.get('userId');
 
     const session = await db.session.findUnique({
-      where: { id: sessionId },
+      where: { id: sessionId, userId },
       include: {
         messages: {
           orderBy: { createdAt: 'asc' },
