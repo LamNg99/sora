@@ -1,14 +1,14 @@
 import 'opentui-spinner/react';
 import { useTheme } from '../providers/theme';
-import { Mode } from '@sora/database/enums';
+import type { ModeType } from '@sora/shared';
 
 type SpinnerProps = {
-  mode: Mode;
+  mode: ModeType;
 };
 
 export function Spinner({ mode }: SpinnerProps) {
   const { colors } = useTheme();
-  const activeColor = mode === Mode.ASK ? colors.askMode : colors.primary;
+  const activeColor = mode === 'ASK' ? colors.askMode : colors.primary;
 
   return <spinner name="star" color={activeColor} />;
 }

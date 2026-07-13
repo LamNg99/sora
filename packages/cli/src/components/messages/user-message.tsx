@@ -1,10 +1,10 @@
 import { TextAttributes } from '@opentui/core';
 import { useTheme } from '../../providers/theme';
-import { Mode } from '@sora/database/enums';
+import type { ModeType } from '@sora/shared';
 
 type UserMessageProps = {
   message: string;
-  mode: Mode;
+  mode: ModeType;
 };
 
 export function UserMessage({ message, mode }: UserMessageProps) {

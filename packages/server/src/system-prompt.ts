@@ -1,11 +1,10 @@
-import type { Mode } from '@sora/database/enums';
+import type { ModeType } from '@sora/shared';
 
 type SystemPromptParams = {
-  mode: Mode;
-  cwd: string | null;
+  mode: ModeType;
 };
 
-export function buildSystemPrompt({ mode, cwd }: SystemPromptParams): string {
+export function buildSystemPrompt({ mode }: SystemPromptParams): string {
   const parts: string[] = [];
 
   parts.push(`You are an expert software engineer working as a coding assistant inside a terminal application.
@@ -13,13 +12,6 @@ export function buildSystemPrompt({ mode, cwd }: SystemPromptParams): string {
   The application has two modes the user can switch between:
   - **ASK** — Read-only analysis and planning. No file modifications.
   - **AGENT** — Full implementation with read and write tools.`);
-
-  if (cwd) {
-    parts.push(`
-    ## Current Working Directory
-    The current working directory is: \`${cwd}\`
-    All file paths are relative to this directory.`);
-  }
 
   if (mode === 'ASK') {
     parts.push(`

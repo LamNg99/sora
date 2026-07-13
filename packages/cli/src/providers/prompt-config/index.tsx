@@ -1,12 +1,16 @@
 import { createContext, useContext, useState } from 'react';
 import type { ReactNode } from 'react';
-import { DEFAULT_CHAT_MODEL_ID, type SupportedChatModelId } from '@sora/shared';
-import { Mode } from '@sora/database/enums';
+import {
+  DEFAULT_CHAT_MODEL_ID,
+  Mode,
+  type SupportedChatModelId,
+  type ModeType,
+} from '@sora/shared';
 
 type PromptContextConfigValue = {
-  mode: Mode;
+  mode: ModeType;
   model: SupportedChatModelId;
-  setMode: (mode: Mode) => void;
+  setMode: (mode: ModeType) => void;
   setModel: (model: SupportedChatModelId) => void;
   toggleMode: () => void;
 };
@@ -26,7 +30,7 @@ type PromptConfigProviderProps = {
 };
 
 export function PromptConfigProvider({ children }: PromptConfigProviderProps) {
-  const [mode, setMode] = useState<Mode>(Mode.AGENT);
+  const [mode, setMode] = useState<ModeType>(Mode.AGENT);
   const [model, setModel] = useState<SupportedChatModelId>(DEFAULT_CHAT_MODEL_ID);
 
   const toggleMode = () => {

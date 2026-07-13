@@ -1,5 +1,4 @@
 import { useRef, useCallback, useEffect, type RefObject, useState } from 'react';
-import type React from 'react';
 import { readdir } from 'fs/promises';
 import { isAbsolute, relative, resolve } from 'path';
 import { TextAttributes } from '@opentui/core';
@@ -231,7 +230,7 @@ function FileMentionMenu({
             height={1}
             overflow="hidden"
             backgroundColor={isSelected ? colors.selected : undefined}
-            onMouseMove={() => onExecute(index)}
+            onMouseMove={() => onSelect(index)}
             onMouseDown={() => onExecute(index)}
           >
             <box flexGrow={1} flexShrink={1} overflow="hidden">
