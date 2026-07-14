@@ -26,13 +26,13 @@ type ChatMessageMetadata = {
   usage?: LanguageModelUsage;
 };
 
-type NightcodeUIMessage = UIMessage<ChatMessageMetadata, never, InferUITools<ToolContracts>>;
+type SoraUIMessage = UIMessage<ChatMessageMetadata, never, InferUITools<ToolContracts>>;
 
 const submitSchema = z.object({
   id: z.string(),
   messages: z
     .array(
-      z.custom<NightcodeUIMessage>((value) => {
+      z.custom<SoraUIMessage>((value) => {
         return value != null && typeof value === 'object' && 'id' in value && 'parts' in value;
       }),
     )
@@ -47,7 +47,7 @@ const submitValidator = zValidator('json', submitSchema, (result, c) => {
   }
 });
 
-function hasPendingToolCalls(message: NightcodeUIMessage) {
+function hasPendingToolCalls(message: SoraUIMessage) {
   return message.parts.some((part) => {
     if (part.type === 'dynamic-tool' || part.type.startsWith('tool-')) {
       const state = (part as { state?: string }).state;
@@ -78,7 +78,7 @@ const app = new Hono<AuthenticatedEnv>().post(
     const tools = getToolContracts(mode);
     const resolvedModel = resolveChatModel(model);
     const previousMessages = Array.isArray(session.messages)
-      ? (session.messages as unknown as NightcodeUIMessage[])
+      ? (session.messages as unknown as SoraUIMessage[])
       : [];
     const mergedMessages = [...previousMessages];
 
@@ -86,7 +86,7 @@ const app = new Hono<AuthenticatedEnv>().post(
       const incomingMessage = {
         ...message,
         metadata: { ...message.metadata, mode, model },
-      } satisfies NightcodeUIMessage;
+      } satisfies SoraUIMessage;
 
       const existingMessageIndex = mergedMessages.findIndex((m) => m.id === incomingMessage.id);
 
@@ -97,8 +97,8 @@ const app = new Hono<AuthenticatedEnv>().post(
       }
     }
 
-    const nextMessages = await validateUIMessages<NightcodeUIMessage>({
-      messages: mergedMessages,
+    const nextMessages = await validateUIMessages<SoraUIMessage>({
+      messages: mergedMessages.filter((m) => !(m.role === 'assistant' && m.parts.length === 0)),
       tools,
     });
     const modelMessages = await convertToModelMessages(nextMessages, { tools });
@@ -115,7 +115,7 @@ const app = new Hono<AuthenticatedEnv>().post(
       },
     });
 
-    return result.toUIMessageStreamResponse<NightcodeUIMessage>({
+    return result.toUIMessageStreamResponse<SoraUIMessage>({
       originalMessages: nextMessages,
       messageMetadata({ part }) {
         if (part.type === 'start') {
