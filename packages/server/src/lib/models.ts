@@ -55,7 +55,15 @@ const ANTHROPIC_PROVIDER_OPTIONS: Partial<Record<AnthropicModelId, ProviderOptio
   },
 };
 
-const OPENAI_PROVIDER_OPTIONS: Partial<Record<OpenAIModelId, ProviderOptions>> = {};
+const OPENAI_PROVIDER_OPTIONS: Partial<Record<OpenAIModelId, ProviderOptions>> = {
+  'gpt-5.5': {
+    openai: {
+      store: false,
+      include: ['reasoning.encrypted_content'],
+      reasoningSummary: 'detailed',
+    },
+  },
+};
 
 function assertUnsupportedModel(provider: never): never {
   throw new Error(`Unsupported provider: ${provider}`);
