@@ -143,7 +143,7 @@ export function BotMessage({ parts, model, mode, durationMs, streaming = false }
             }
             if (part.type === 'text') {
               return (
-                <box key={`text-${i}`} width="100%" paddingX={3} paddingY={1}>
+                <box key={`text-${i}`} width="100%" paddingX={3}>
                   <markdown
                     content={part.text}
                     syntaxStyle={textMarkdownStyle}

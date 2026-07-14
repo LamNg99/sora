@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router';
 import { SessionShell } from '../components/session-shell';
 import type { InferResponseType } from 'hono';
@@ -9,7 +9,6 @@ import { BotMessage, ErrorMessage, UserMessage } from '../components/messages';
 import { useChat } from '../hooks/use-chat';
 import type { Message } from '../hooks/use-chat';
 import { useToast } from '../providers/toast';
-import { useEffect, useMemo, useState } from 'react';
 import { getErrorMessage } from '../lib/http-errors';
 import { useKeyboard } from '@opentui/react';
 import { useKeyboardLayer } from '../providers/keyboard-layer';
@@ -71,10 +70,12 @@ function SessionChat({
   );
 
   const hasSubmittedInitialPrompt = useRef(false);
+  const abortRef = useRef(abort);
+  abortRef.current = abort;
 
   useEffect(() => {
-    return () => void abort();
-  }, [abort]);
+    return () => void abortRef.current();
+  }, []);
 
   useKeyboard((key) => {
     if (key.name === 'escape' && isTopLayer('base') && status === 'streaming') {

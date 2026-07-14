@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useChat as useAiChat } from '@ai-sdk/react';
 import {
   DefaultChatTransport,
@@ -86,11 +86,8 @@ export function useChat(sessionId: string, initialMessages: Message[]) {
     sendAutomaticallyWhen: lastAssistantMessageIsCompleteWithToolCalls,
   });
 
-  return {
-    messages: chat.messages,
-    status: chat.status,
-    error: chat.error,
-    submit: (params: { userText: string; mode: ModeType; model: SupportedChatModelId }) => {
+  const submit = useCallback(
+    (params: { userText: string; mode: ModeType; model: SupportedChatModelId }) => {
       return chat.sendMessage({
         text: params.userText,
         metadata: {
@@ -99,6 +96,14 @@ export function useChat(sessionId: string, initialMessages: Message[]) {
         },
       });
     },
+    [chat.sendMessage],
+  );
+
+  return {
+    messages: chat.messages,
+    status: chat.status,
+    error: chat.error,
+    submit,
     abort: chat.stop,
     interrupt: chat.stop,
   };
