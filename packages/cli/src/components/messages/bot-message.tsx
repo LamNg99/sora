@@ -1,5 +1,6 @@
 import prettyMs from 'pretty-ms';
-import { TextAttributes } from '@opentui/core';
+import { SyntaxStyle, TextAttributes } from '@opentui/core';
+import { useMemo } from 'react';
 import { useTheme } from '../../providers/theme';
 import type { Message } from '../../hooks/use-chat';
 import { Mode, type ModeType } from '@sora/shared';
@@ -35,6 +36,39 @@ type PartGroup = {
   key: string;
 };
 
+type MarkdownStyleOptions = {
+  text: string;
+  accent: string;
+  muted: string;
+  dim?: boolean;
+};
+
+function createMarkdownStyle({
+  text,
+  accent,
+  muted,
+  dim = false,
+}: MarkdownStyleOptions): SyntaxStyle {
+  return SyntaxStyle.fromStyles({
+    default: { fg: text, dim },
+    conceal: { fg: muted, dim: true },
+    markup: { fg: muted, dim: true },
+    'markup.heading': { fg: accent, bold: true },
+    'markup.strong': { fg: text, bold: true, dim },
+    'markup.italic': { fg: text, italic: true, dim },
+    'markup.strikethrough': { fg: muted, dim: true },
+    'markup.raw': { fg: accent, dim },
+    'markup.link': { fg: muted, dim: true },
+    'markup.link.label': { fg: accent, underline: true },
+    'markup.link.url': { fg: muted, underline: true, dim: true },
+    'markup.list': { fg: accent, bold: true },
+    'markup.quote': { fg: muted, italic: true, dim: true },
+    keyword: { fg: accent, bold: true },
+    string: { fg: text, dim },
+    comment: { fg: muted, italic: true, dim: true },
+  });
+}
+
 function groupConsecutiveParts(parts: ClientMessagePart[]): PartGroup[] {
   const groups: PartGroup[] = [];
 
@@ -55,6 +89,20 @@ function groupConsecutiveParts(parts: ClientMessagePart[]): PartGroup[] {
 
 export function BotMessage({ parts, model, mode, durationMs, streaming = false }: BotMessageProps) {
   const { colors } = useTheme();
+  const textMarkdownStyle = useMemo(
+    () => createMarkdownStyle({ text: '#ffffff', accent: colors.info, muted: colors.dimSeparator }),
+    [colors.dimSeparator, colors.info],
+  );
+  const reasoningMarkdownStyle = useMemo(
+    () =>
+      createMarkdownStyle({
+        text: colors.thinking,
+        accent: colors.thinking,
+        muted: colors.dimSeparator,
+        dim: true,
+      }),
+    [colors.dimSeparator, colors.thinking],
+  );
 
   return (
     <box width="100%" alignItems="center">
@@ -63,10 +111,18 @@ export function BotMessage({ parts, model, mode, durationMs, streaming = false }
           {group.parts.map((part, i) => {
             if (part.type === 'reasoning') {
               return (
-                <box key={`reasoning-${i}`} width="100%" paddingX={2}>
+                <box key={`reasoning-${i}`} width="100%" paddingX={2} paddingBottom={1}>
                   <text attributes={TextAttributes.DIM}>
-                    <em fg={colors.thinking}>Thinking:</em> {part.text}
+                    <em fg={colors.thinking}>Thinking:</em>
                   </text>
+                  <markdown
+                    content={part.text}
+                    syntaxStyle={reasoningMarkdownStyle}
+                    fg={colors.thinking}
+                    conceal
+                    streaming={streaming}
+                    width="100%"
+                  />
                 </box>
               );
             }
@@ -87,8 +143,16 @@ export function BotMessage({ parts, model, mode, durationMs, streaming = false }
             }
             if (part.type === 'text') {
               return (
-                <box key={`text-${i}`} width="100%" paddingX={3}>
-                  <text>{part.text}</text>
+                <box key={`text-${i}`} width="100%" paddingX={3} paddingY={1}>
+                  <markdown
+                    content={part.text}
+                    syntaxStyle={textMarkdownStyle}
+                    fg="#ffffff"
+                    conceal
+                    concealCode
+                    streaming={streaming}
+                    width="100%"
+                  />
                 </box>
               );
             }
