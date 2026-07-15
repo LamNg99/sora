@@ -34,7 +34,35 @@ const sessionLocationSchema = z.object({
     .optional(),
 });
 
-function ChatMessage({ msg }: { msg: Message }) {
+type ToolApprovalHandlers = {
+  onApproveTool: (approvalId: string) => void;
+  onDenyTool: (approvalId: string) => void;
+};
+
+type ClientToolCallPart = Extract<Message['parts'][number], { type: `tool-${string}` | 'dynamic-tool' }>;
+
+function isToolPart(part: Message['parts'][number]): part is ClientToolCallPart {
+  return part.type === 'dynamic-tool' || part.type.startsWith('tool-');
+}
+
+function getPendingApprovalId(messages: Message[]) {
+  for (const message of messages) {
+    for (const part of message.parts) {
+      if (isToolPart(part) && part.state === 'approval-requested' && !part.approval.isAutomatic) {
+        return part.approval.id;
+      }
+    }
+  }
+
+  return undefined;
+}
+
+function ChatMessage({
+  msg,
+  onApproveTool,
+  onDenyTool,
+  activeApprovalId,
+}: { msg: Message; activeApprovalId?: string } & ToolApprovalHandlers) {
   if (msg.role === 'user') {
     const text = msg.parts
       .filter((p) => p.type === 'text')
@@ -50,6 +78,9 @@ function ChatMessage({ msg }: { msg: Message }) {
       mode={msg.metadata?.mode ?? 'AGENT'}
       durationMs={msg.metadata?.durationMs}
       streaming={false}
+      onApproveTool={onApproveTool}
+      onDenyTool={onDenyTool}
+      activeApprovalId={activeApprovalId}
     />
   );
 }
@@ -64,12 +95,14 @@ function SessionChat({
   const [initialMessages] = useState(() => session.messages as unknown as Message[]);
   const { isTopLayer } = useKeyboardLayer();
   const { mode, model } = usePromptConfig();
-  const { messages, status, submit, abort, interrupt, error } = useChat(
+  const { messages, status, submit, approveTool, denyTool, abort, interrupt, error } = useChat(
     session.id,
     initialMessages,
   );
 
   const hasSubmittedInitialPrompt = useRef(false);
+  const pendingApprovalId = getPendingApprovalId(messages);
+  const waitingForApproval = pendingApprovalId != null;
   const abortRef = useRef(abort);
   abortRef.current = abort;
 
@@ -104,12 +137,19 @@ function SessionChat({
           model,
         })
       }
-      loading={status === 'submitted' || status === 'streaming'}
-      interruptible={status === 'submitted' || status === 'streaming'}
-      inputDisabled={status === 'streaming'}
+      loading={!waitingForApproval && (status === 'submitted' || status === 'streaming')}
+      interruptible={!waitingForApproval && (status === 'submitted' || status === 'streaming')}
+      inputDisabled={waitingForApproval || status === 'streaming'}
+      footerHint={waitingForApproval ? 'Approve or deny the requested tool call' : undefined}
     >
       {messages.map((msg) => (
-        <ChatMessage key={msg.id} msg={msg} />
+        <ChatMessage
+          key={msg.id}
+          msg={msg}
+          onApproveTool={approveTool}
+          onDenyTool={denyTool}
+          activeApprovalId={pendingApprovalId}
+        />
       ))}
       {error && <ErrorMessage message={error.message} />}
     </SessionShell>

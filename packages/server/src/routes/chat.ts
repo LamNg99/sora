@@ -11,7 +11,13 @@ import {
 } from 'ai';
 import { db } from '@sora/database/client';
 import type { Prisma } from '@sora/database';
-import { getToolContracts, modeSchema, type ModeType, type ToolContracts } from '@sora/shared';
+import {
+  getToolContracts,
+  modeSchema,
+  requiresToolApproval,
+  type ModeType,
+  type ToolContracts,
+} from '@sora/shared';
 import { buildSystemPrompt } from '../system-prompt';
 import type { AuthenticatedEnv } from '../middleware/require-auth';
 import { requireCreditsBalance } from '../middleware/require-credits-balance';
@@ -51,11 +57,50 @@ function hasPendingToolCalls(message: SoraUIMessage) {
   return message.parts.some((part) => {
     if (part.type === 'dynamic-tool' || part.type.startsWith('tool-')) {
       const state = (part as { state?: string }).state;
-      return state !== 'output-available' && state !== 'output-error';
+      return !['approval-requested', 'output-available', 'output-error', 'output-denied'].includes(
+        state ?? '',
+      );
     }
 
     return false;
   });
+}
+
+type ToolApproval = {
+  id: string;
+  approved?: boolean;
+  reason?: string;
+  isAutomatic?: boolean;
+  signature?: string;
+};
+
+function normalizeToolApprovalState(messages: SoraUIMessage[]): SoraUIMessage[] {
+  return messages.map((message) => ({
+    ...message,
+    parts: message.parts.map((part) => {
+      if (!(part.type === 'dynamic-tool' || part.type.startsWith('tool-'))) return part;
+
+      const toolPart = part as typeof part & { state?: string; approval?: ToolApproval };
+      if (!toolPart.approval) return part;
+
+      if (toolPart.state === 'approval-responded' && toolPart.approval.approved === true) {
+        const { approved: _approved, reason: _reason, ...approval } = toolPart.approval;
+        return { ...part, state: 'approval-requested', approval };
+      }
+
+      if (toolPart.approval.approved != null) return part;
+
+      if (toolPart.state === 'output-available' || toolPart.state === 'output-error') {
+        return { ...part, approval: { ...toolPart.approval, approved: true } };
+      }
+
+      if (toolPart.state === 'output-denied') {
+        return { ...part, approval: { ...toolPart.approval, approved: false } };
+      }
+
+      return part;
+    }),
+  })) as SoraUIMessage[];
 }
 
 const app = new Hono<AuthenticatedEnv>().post(
@@ -97,8 +142,9 @@ const app = new Hono<AuthenticatedEnv>().post(
       }
     }
 
+    const normalizedMessages = normalizeToolApprovalState(mergedMessages);
     const nextMessages = await validateUIMessages<SoraUIMessage>({
-      messages: mergedMessages.filter((m) => !(m.role === 'assistant' && m.parts.length === 0)),
+      messages: normalizedMessages.filter((m) => !(m.role === 'assistant' && m.parts.length === 0)),
       tools,
     });
     const modelMessages = await convertToModelMessages(nextMessages, { tools });
@@ -109,9 +155,15 @@ const app = new Hono<AuthenticatedEnv>().post(
       system: buildSystemPrompt({ mode }),
       messages: modelMessages,
       tools,
+      toolApproval({ toolCall }) {
+        return requiresToolApproval(toolCall.toolName, mode) ? 'user-approval' : 'not-applicable';
+      },
+      ...(process.env.TOOL_APPROVAL_SECRET
+        ? { experimental_toolApprovalSecret: process.env.TOOL_APPROVAL_SECRET }
+        : {}),
       providerOptions: resolvedModel.providerOptions,
       onFinish(event) {
-        completedUsage = event.totalUsage;
+        completedUsage = event.usage;
       },
     });
 
@@ -136,10 +188,12 @@ const app = new Hono<AuthenticatedEnv>().post(
 
         if (hasPendingToolCalls(event.responseMessage)) return;
 
+        const persistedMessages = normalizeToolApprovalState(event.messages as unknown as SoraUIMessage[]);
+
         await db.session.update({
           where: { id, userId },
           data: {
-            messages: event.messages as unknown as Prisma.InputJsonValue,
+            messages: persistedMessages as unknown as Prisma.InputJsonValue,
           },
         });
 

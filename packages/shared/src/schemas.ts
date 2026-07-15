@@ -10,6 +10,13 @@ export const modeSchema = z.enum([Mode.AGENT, Mode.ASK]);
 
 export type ModeType = (typeof Mode)[keyof typeof Mode];
 
+export const READONLY_TOOL_NAMES = ['readFile', 'listDirectory', 'glob', 'grep'] as const;
+export const APPROVAL_REQUIRED_TOOL_NAMES = ['writeFile', 'editFile', 'bash'] as const;
+
+export function requiresToolApproval(toolName: string, mode: ModeType) {
+  return mode === Mode.AGENT && (APPROVAL_REQUIRED_TOOL_NAMES as readonly string[]).includes(toolName);
+}
+
 export const toolInputSchema = {
   readFile: z.object({
     path: z.string().describe('Relative path to the file to read'),

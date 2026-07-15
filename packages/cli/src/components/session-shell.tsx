@@ -10,6 +10,7 @@ type SessionShellProps = {
   inputDisabled?: boolean;
   loading?: boolean;
   interruptible?: boolean;
+  footerHint?: string;
 };
 
 export function SessionShell({
@@ -18,6 +19,7 @@ export function SessionShell({
   inputDisabled = false,
   loading = false,
   interruptible = false,
+  footerHint,
 }: SessionShellProps) {
   const { mode } = usePromptConfig();
   return (
@@ -45,6 +47,8 @@ export function SessionShell({
               <Spinner mode={mode} />
               {interruptible ? <text>Press esc to interrupt</text> : null}
             </>
+          ) : footerHint ? (
+            <text attributes={TextAttributes.DIM}>{footerHint}</text>
           ) : null}
         </box>
         <box flexDirection="row" gap={1} flexShrink={0} marginLeft="auto">

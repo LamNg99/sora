@@ -12,7 +12,10 @@ export {
   Mode,
   modeSchema,
   toolInputSchema,
+  READONLY_TOOL_NAMES,
+  APPROVAL_REQUIRED_TOOL_NAMES,
   getToolContracts,
+  requiresToolApproval,
   type ModeType,
   type ToolContracts,
 } from './schemas';

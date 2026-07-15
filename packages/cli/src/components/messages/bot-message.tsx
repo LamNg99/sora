@@ -1,19 +1,27 @@
 import prettyMs from 'pretty-ms';
 import { SyntaxStyle, TextAttributes } from '@opentui/core';
-import { useMemo } from 'react';
+import { useKeyboard } from '@opentui/react';
+import { useCallback, useMemo, useState } from 'react';
 import { useTheme } from '../../providers/theme';
+import { useKeyboardLayer } from '../../providers/keyboard-layer';
 import type { Message } from '../../hooks/use-chat';
 import { Mode, type ModeType } from '@sora/shared';
 
 type ClientMessagePart = Message['parts'][number];
 type ClientToolCallPart = Extract<ClientMessagePart, { type: `tool-${string}` | 'dynamic-tool' }>;
 
-type BotMessageProps = {
+type ToolApprovalCallbacks = {
+  onApproveTool?: (approvalId: string) => void;
+  onDenyTool?: (approvalId: string) => void;
+};
+
+type BotMessageProps = ToolApprovalCallbacks & {
   parts: ClientMessagePart[];
   model: string;
   mode: ModeType;
   durationMs?: number;
   streaming?: boolean;
+  activeApprovalId?: string;
 };
 
 function formatToolName(name: string): string {
@@ -24,10 +32,118 @@ function isToolPart(part: ClientMessagePart): part is ClientToolCallPart {
   return part.type === 'dynamic-tool' || part.type.startsWith('tool-');
 }
 
+function truncateToolValue(value: string) {
+  return value.length > 160 ? `${value.slice(0, 157)}...` : value;
+}
+
 function formatToolArgs(tc: ClientToolCallPart): string {
   if (!('input' in tc) || tc.input == null) return '';
-  if (typeof tc.input !== 'object') return String(tc.input);
-  return Object.values(tc.input).map(String).join(' ');
+  if (typeof tc.input !== 'object') return truncateToolValue(String(tc.input));
+  return Object.values(tc.input).map((value) => truncateToolValue(String(value))).join(' ');
+}
+
+function getToolApproval(part: ClientToolCallPart) {
+  return 'approval' in part ? part.approval : undefined;
+}
+
+function getToolStatus(part: ClientToolCallPart) {
+  const approval = getToolApproval(part);
+
+  switch (part.state) {
+    case 'approval-requested':
+      return approval?.isAutomatic ? 'approval requested automatically' : 'waiting for approval';
+    case 'approval-responded':
+      return approval?.approved
+        ? 'approved'
+        : `denied${approval?.reason ? `: ${approval.reason}` : ''}`;
+    case 'output-denied':
+      return `denied${approval?.reason ? `: ${approval.reason}` : ''}`;
+    case 'output-error':
+      return `error: ${part.errorText}`;
+    case 'output-available':
+      return '';
+    default:
+      return '...';
+  }
+}
+
+type ToolApprovalOption = {
+  label: string;
+  value: 'approve' | 'deny';
+};
+
+const TOOL_APPROVAL_OPTIONS: ToolApprovalOption[] = [
+  { label: 'Approve', value: 'approve' },
+  { label: 'Deny', value: 'deny' },
+];
+
+type ToolApprovalListProps = ToolApprovalCallbacks & {
+  approvalId: string;
+  active: boolean;
+};
+
+function ToolApprovalList({ approvalId, active, onApproveTool, onDenyTool }: ToolApprovalListProps) {
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const { colors } = useTheme();
+  const { isTopLayer } = useKeyboardLayer();
+
+  const executeSelectedOption = useCallback(() => {
+    const option = TOOL_APPROVAL_OPTIONS[selectedIndex];
+    if (!option) return;
+
+    if (option.value === 'approve') {
+      onApproveTool?.(approvalId);
+    } else {
+      onDenyTool?.(approvalId);
+    }
+  }, [approvalId, onApproveTool, onDenyTool, selectedIndex]);
+
+  useKeyboard((key) => {
+    if (!active || !isTopLayer('base')) return;
+
+    if (key.name === 'return' || key.name === 'enter') {
+      key.preventDefault();
+      executeSelectedOption();
+    } else if (key.name === 'up' || key.name === 'left') {
+      key.preventDefault();
+      setSelectedIndex((i) => Math.max(i - 1, 0));
+    } else if (key.name === 'down' || key.name === 'right' || key.name === 'tab') {
+      key.preventDefault();
+      setSelectedIndex((i) => Math.min(i + 1, TOOL_APPROVAL_OPTIONS.length - 1));
+    }
+  });
+
+  return (
+    <box flexDirection="column" paddingLeft={2}>
+      {TOOL_APPROVAL_OPTIONS.map((option, index) => {
+        const isSelected = index === selectedIndex;
+        return (
+          <box
+            key={option.value}
+            flexDirection="row"
+            gap={1}
+            height={1}
+            overflow="hidden"
+            onMouseMove={() => setSelectedIndex(index)}
+            onMouseDown={() => {
+              if (option.value === 'approve') {
+                onApproveTool?.(approvalId);
+              } else {
+                onDenyTool?.(approvalId);
+              }
+            }}
+          >
+            <text selectable={false} fg={colors.selected}>
+              {isSelected ? '›' : ' '}
+            </text>
+            <text selectable={false} fg="white">
+              {option.label}
+            </text>
+          </box>
+        );
+      })}
+    </box>
+  );
 }
 
 type PartGroup = {
@@ -87,7 +203,16 @@ function groupConsecutiveParts(parts: ClientMessagePart[]): PartGroup[] {
   return groups;
 }
 
-export function BotMessage({ parts, model, mode, durationMs, streaming = false }: BotMessageProps) {
+export function BotMessage({
+  parts,
+  model,
+  mode,
+  durationMs,
+  streaming = false,
+  onApproveTool,
+  onDenyTool,
+  activeApprovalId,
+}: BotMessageProps) {
   const { colors } = useTheme();
   const textMarkdownStyle = useMemo(
     () => createMarkdownStyle({ text: '#ffffff', accent: colors.info, muted: colors.dimSeparator }),
@@ -129,15 +254,25 @@ export function BotMessage({ parts, model, mode, durationMs, streaming = false }
             if (isToolPart(part)) {
               const toolName =
                 part.type === 'dynamic-tool' ? part.toolName : part.type.slice('tool-'.length);
+              const approval = getToolApproval(part);
+              const status = getToolStatus(part);
+              const showApprovalControls =
+                part.state === 'approval-requested' && approval?.id && !approval.isAutomatic;
+
               return (
-                <box key={part.toolCallId} width="100%" paddingX={2}>
+                <box key={part.toolCallId} width="100%" paddingX={2} flexDirection="column" gap={1}>
                   <text attributes={TextAttributes.DIM}>
                     <em fg={colors.info}>{formatToolName(toolName)}:</em> {formatToolArgs(part)}
-                    {part.state !== 'output-available' && part.state !== 'output-error'
-                      ? ' ...'
-                      : ''}
-                    {part.state === 'output-error' ? ` ${part.errorText})` : ''}
+                    {status ? ` ${status}` : ''}
                   </text>
+                  {showApprovalControls ? (
+                    <ToolApprovalList
+                      approvalId={approval.id}
+                      active={activeApprovalId === approval.id}
+                      onApproveTool={onApproveTool}
+                      onDenyTool={onDenyTool}
+                    />
+                  ) : null}
                 </box>
               );
             }
