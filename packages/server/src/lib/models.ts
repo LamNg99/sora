@@ -1,4 +1,5 @@
-import 'dotenv/config';
+import dotenv from 'dotenv';
+import path from 'path';
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { createOpenAI } from '@ai-sdk/openai';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
@@ -15,18 +16,24 @@ type AnthropicModelId = Extract<SupportedChatModel, { provider: 'anthropic' }>['
 type OpenAIModelId = Extract<SupportedChatModel, { provider: 'openai' }>['id'];
 type GoogleModelId = Extract<SupportedChatModel, { provider: 'google' }>['id'];
 
+const env =
+  dotenv.config({ path: path.resolve(import.meta.dirname, '../../../../.env') }).parsed ?? {};
+const getEnv = (key: string) => env[key] ?? process.env[key];
+
+const anthropicBaseURL = getEnv('ANTHROPIC_BASE_URL');
+const openaiBaseURL = getEnv('OPENAI_BASE_URL');
+const googleBaseURL = getEnv('GOOGLE_BASE_URL');
+
 const anthropic = createAnthropic({
-  ...(process.env.ANTHROPIC_BASE_URL ? { baseURL: process.env.ANTHROPIC_BASE_URL } : {}),
+  ...(anthropicBaseURL ? { baseURL: anthropicBaseURL } : {}),
 });
 
 const openai = createOpenAI({
-  ...(process.env.OPENAI_BASE_URL
-    ? { baseURL: process.env.OPENAI_BASE_URL, compatibility: 'compatible' }
-    : {}),
+  ...(openaiBaseURL ? { baseURL: openaiBaseURL, compatibility: 'compatible' } : {}),
 });
 
 const google = createGoogleGenerativeAI({
-  ...(process.env.GOOGLE_BASE_URL ? { baseURL: process.env.GOOGLE_BASE_URL } : {}),
+  ...(googleBaseURL ? { baseURL: googleBaseURL } : {}),
 });
 
 export type ResolvedModel = {
@@ -45,7 +52,7 @@ const ANTHROPIC_PROVIDER_OPTIONS: Partial<Record<AnthropicModelId, ProviderOptio
       },
     },
   },
-  'claude-sonet-4-6': {
+  'claude-sonnet-4-6': {
     anthropic: {
       thinking: {
         type: 'enabled',

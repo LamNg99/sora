@@ -13,7 +13,7 @@ type SupportedChatModelDefinition = {
 
 export const SUPPORTED_CHAT_MODELS = [
   {
-    id: 'claude-sonet-4-6',
+    id: 'claude-sonnet-4-6',
     provider: 'anthropic',
     pricing: {
       inputUsdPerMillionTokens: 3,

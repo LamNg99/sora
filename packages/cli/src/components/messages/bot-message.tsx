@@ -278,7 +278,7 @@ export function BotMessage({
             }
             if (part.type === 'text') {
               return (
-                <box key={`text-${i}`} width="100%" paddingX={3}>
+                <box key={`text-${i}`} width="100%" paddingX={2}>
                   <markdown
                     content={part.text}
                     syntaxStyle={textMarkdownStyle}
