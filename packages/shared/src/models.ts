@@ -53,7 +53,7 @@ export const SUPPORTED_CHAT_MODELS = [
     },
   },
   {
-    id: 'gpt-5.4-nano',
+    id: 'gpt-oss-20b',
     provider: 'openai',
     pricing: {
       inputUsdPerMillionTokens: 0.2,
