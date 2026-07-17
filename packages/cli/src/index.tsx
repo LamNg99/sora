@@ -6,6 +6,10 @@ import { Home } from './screens/home';
 import { NewSession } from './screens/new-session';
 import { Session } from './screens/session';
 
+process.on('SIGINT', () => {
+  process.exit(0);
+});
+
 const router = createMemoryRouter([
   {
     path: '/',
