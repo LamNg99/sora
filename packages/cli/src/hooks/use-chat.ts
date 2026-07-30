@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useChat as useAiChat } from '@ai-sdk/react';
 import {
   DefaultChatTransport,
@@ -9,6 +9,8 @@ import {
 } from 'ai';
 import {
   requiresToolApproval,
+  type LoadedSkill,
+  type McpToolDefinition,
   type ModeType,
   type SupportedChatModelId,
   type ToolContracts,
@@ -16,6 +18,8 @@ import {
 import { apiClient } from '../lib/api-client';
 import { getAuth } from '../lib/auth';
 import { executeLocalTool } from '../lib/local-tools';
+import { mcpManager } from '../lib/mcp-manager';
+import type { Skill } from '../lib/skills';
 
 export type ChatMessageMetadata = {
   mode?: ModeType;
@@ -33,7 +37,10 @@ type ChatTools = {
 
 export type Message = UIMessage<ChatMessageMetadata, never, ChatTools>;
 
-type ClientToolCallPart = Extract<Message['parts'][number], { type: `tool-${string}` | 'dynamic-tool' }>;
+type ClientToolCallPart = Extract<
+  Message['parts'][number],
+  { type: `tool-${string}` | 'dynamic-tool' }
+>;
 function isToolPart(part: Message['parts'][number]): part is ClientToolCallPart {
   return part.type === 'dynamic-tool' || part.type.startsWith('tool-');
 }
@@ -75,7 +82,8 @@ function lastAssistantMessageIsCompleteWithDeniedApproval({ messages }: { messag
   if (!message || message.role !== 'assistant') return false;
 
   const lastStepStart = message.parts.findLastIndex((part) => part.type === 'step-start');
-  const lastStepParts = lastStepStart === -1 ? message.parts : message.parts.slice(lastStepStart + 1);
+  const lastStepParts =
+    lastStepStart === -1 ? message.parts : message.parts.slice(lastStepStart + 1);
   const toolParts = lastStepParts.filter(isToolPart);
   if (!toolParts.some((part) => part.approval?.approved === false)) return false;
 
@@ -88,7 +96,34 @@ function lastAssistantMessageIsCompleteWithDeniedApproval({ messages }: { messag
   );
 }
 
-export function useChat(sessionId: string, initialMessages: Message[]) {
+type SkillContext = {
+  availableSkills: Skill[];
+  toggleSkill: (name: string) => void;
+};
+
+export function useChat(
+  sessionId: string,
+  initialMessages: Message[],
+  loadedSkills: LoadedSkill[] = [],
+  skillContext?: SkillContext,
+) {
+  const [mcpTools, setMcpTools] = useState<Record<string, McpToolDefinition>>({});
+  const mcpToolsRef = useRef(mcpTools);
+  mcpToolsRef.current = mcpTools;
+
+  const loadedSkillsRef = useRef(loadedSkills);
+  loadedSkillsRef.current = loadedSkills;
+
+  const skillContextRef = useRef(skillContext);
+  skillContextRef.current = skillContext;
+
+  useEffect(() => {
+    mcpManager
+      .initialize()
+      .then(() => setMcpTools(mcpManager.getToolDefinitions()))
+      .catch(() => {});
+  }, []);
+
   const transport = useMemo(() => {
     return new DefaultChatTransport<Message>({
       api: apiClient.chat.$url().toString(),
@@ -107,12 +142,22 @@ export function useChat(sessionId: string, initialMessages: Message[]) {
             ? [previousMessage, message]
             : [message];
 
+        const currentMcpTools = mcpToolsRef.current;
+        const currentSkills = loadedSkillsRef.current;
+        const currentSkillContext = skillContextRef.current;
+        const skillCatalog = currentSkillContext?.availableSkills.map((s) => ({
+          name: s.name,
+          ...(s.description ? { description: s.description } : {}),
+        }));
         return {
           body: {
             id: sessionId,
             messages: requestMessages,
             mode: message.metadata?.mode ?? metadata?.mode,
             model: message.metadata?.model ?? metadata?.model,
+            ...(Object.keys(currentMcpTools).length > 0 ? { mcpTools: currentMcpTools } : {}),
+            ...(currentSkills.length > 0 ? { skills: currentSkills } : {}),
+            ...(skillCatalog && skillCatalog.length > 0 ? { skillCatalog } : {}),
           },
         };
       },
@@ -133,7 +178,33 @@ export function useChat(sessionId: string, initialMessages: Message[]) {
         return;
       }
 
-      void executeLocalTool(toolCall.toolName, toolCall.input, mode)
+      if (toolCall.toolName === 'loadSkill') {
+        const { name } = toolCall.input as { name: string };
+        const ctx = skillContextRef.current;
+        const skill = ctx?.availableSkills.find((s) => s.name === name);
+        if (!skill) {
+          void chat.addToolOutput({
+            tool: 'loadSkill' as keyof ChatTools,
+            toolCallId: toolCall.toolCallId,
+            state: 'output-error',
+            errorText: `Skill "${name}" not found. Available: ${ctx?.availableSkills.map((s) => s.name).join(', ') ?? 'none'}`,
+          });
+          return;
+        }
+        ctx?.toggleSkill(name);
+        void chat.addToolOutput({
+          tool: 'loadSkill' as keyof ChatTools,
+          toolCallId: toolCall.toolCallId,
+          output: { name: skill.name, content: skill.content },
+        });
+        return;
+      }
+
+      const executeTool = mcpManager.isMcpTool(toolCall.toolName)
+        ? mcpManager.executeTool(toolCall.toolName, toolCall.input)
+        : executeLocalTool(toolCall.toolName, toolCall.input, mode);
+
+      void executeTool
         .then((output) =>
           chat.addToolOutput({
             tool: toolCall.toolName as keyof ChatTools,

@@ -94,10 +94,12 @@ function SessionChat({
 }) {
   const [initialMessages] = useState(() => session.messages as unknown as Message[]);
   const { isTopLayer } = useKeyboardLayer();
-  const { mode, model } = usePromptConfig();
+  const { mode, model, loadedSkills, availableSkills, toggleSkill } = usePromptConfig();
   const { messages, status, submit, approveTool, denyTool, abort, interrupt, error } = useChat(
     session.id,
     initialMessages,
+    loadedSkills,
+    { availableSkills, toggleSkill },
   );
 
   const hasSubmittedInitialPrompt = useRef(false);

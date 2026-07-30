@@ -9,12 +9,14 @@ import {
   type LanguageModelUsage,
   type UIMessage,
 } from 'ai';
+import { jsonSchema, tool } from '@ai-sdk/provider-utils';
 import { db } from '@sora/database/client';
 import type { Prisma } from '@sora/database';
 import {
   getToolContracts,
   modeSchema,
   requiresToolApproval,
+  type McpToolDefinition,
   type ModeType,
   type ToolContracts,
 } from '@sora/shared';
@@ -34,6 +36,11 @@ type ChatMessageMetadata = {
 
 type SoraUIMessage = UIMessage<ChatMessageMetadata, never, InferUITools<ToolContracts>>;
 
+const mcpToolSchema = z.object({
+  description: z.string().optional(),
+  inputSchema: z.unknown(),
+});
+
 const submitSchema = z.object({
   id: z.string(),
   messages: z
@@ -45,6 +52,13 @@ const submitSchema = z.object({
     .min(1),
   mode: modeSchema,
   model: z.string().refine(isSupportedChatModel, 'Unsupported model'),
+  mcpTools: z.record(z.string(), mcpToolSchema).optional(),
+  skills: z
+    .array(z.object({ name: z.string(), content: z.string() }))
+    .optional(),
+  skillCatalog: z
+    .array(z.object({ name: z.string(), description: z.string().optional() }))
+    .optional(),
 });
 
 const submitValidator = zValidator('json', submitSchema, (result, c) => {
@@ -64,6 +78,34 @@ function hasPendingToolCalls(message: SoraUIMessage) {
 
     return false;
   });
+}
+
+function buildLoadSkillTool(catalog: { name: string; description?: string }[] | undefined) {
+  if (!catalog || catalog.length === 0) return {} as Record<string, never>;
+  const list = catalog
+    .map((s) => (s.description ? `${s.name} — ${s.description}` : s.name))
+    .join(', ');
+  return {
+    loadSkill: tool({
+      description: `Load a skill to inject specialized context into this conversation. Call this proactively when the task would benefit from domain-specific knowledge or conventions. Available skills: ${list}`,
+      inputSchema: z.object({
+        name: z.string().describe('Exact skill name to load'),
+      }),
+    }),
+  };
+}
+
+function buildMcpToolContracts(mcpTools: Record<string, McpToolDefinition> | undefined) {
+  if (!mcpTools) return {};
+  return Object.fromEntries(
+    Object.entries(mcpTools).map(([name, def]) => [
+      name,
+      tool({
+        description: def.description ?? '',
+        inputSchema: jsonSchema(def.inputSchema as Parameters<typeof jsonSchema>[0]),
+      }),
+    ]),
+  );
 }
 
 type ToolApproval = {
@@ -109,7 +151,7 @@ const app = new Hono<AuthenticatedEnv>().post(
   submitValidator,
   async (c) => {
     const userId = c.get('userId');
-    const { id, messages, mode, model } = c.req.valid('json');
+    const { id, messages, mode, model, mcpTools, skills, skillCatalog } = c.req.valid('json');
 
     const session = await db.session.findUnique({
       where: { id, userId },
@@ -120,7 +162,10 @@ const app = new Hono<AuthenticatedEnv>().post(
     }
 
     const startTime = Date.now();
-    const tools = getToolContracts(mode);
+    const staticTools = getToolContracts(mode);
+    const mcpToolContracts = buildMcpToolContracts(mcpTools);
+    const loadSkillTool = buildLoadSkillTool(skillCatalog);
+    const tools = { ...staticTools, ...mcpToolContracts, ...loadSkillTool };
     const resolvedModel = resolveChatModel(model);
     const previousMessages = Array.isArray(session.messages)
       ? (session.messages as unknown as SoraUIMessage[])
@@ -152,10 +197,12 @@ const app = new Hono<AuthenticatedEnv>().post(
 
     const result = streamText({
       model: resolvedModel.model,
-      system: buildSystemPrompt({ mode }),
+      system: buildSystemPrompt({ mode, skills }),
       messages: modelMessages,
       tools,
       toolApproval({ toolCall }) {
+        if (toolCall.toolName === 'loadSkill') return 'not-applicable';
+        if (mcpTools && toolCall.toolName in mcpTools) return 'not-applicable';
         return requiresToolApproval(toolCall.toolName, mode) ? 'user-approval' : 'not-applicable';
       },
       ...(process.env.TOOL_APPROVAL_SECRET

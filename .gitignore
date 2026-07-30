@@ -38,3 +38,6 @@ packages/database/generated/prisma
 
 # Scripts
 scripts
+
+# Skills
+.sora

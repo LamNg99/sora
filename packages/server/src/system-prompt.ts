@@ -1,10 +1,11 @@
-import type { ModeType } from '@sora/shared';
+import type { LoadedSkill, ModeType } from '@sora/shared';
 
 type SystemPromptParams = {
   mode: ModeType;
+  skills?: LoadedSkill[];
 };
 
-export function buildSystemPrompt({ mode }: SystemPromptParams): string {
+export function buildSystemPrompt({ mode, skills }: SystemPromptParams): string {
   const parts: string[] = [];
 
   parts.push(`You are an expert software engineer working as a coding assistant inside a terminal application.
@@ -61,6 +62,13 @@ export function buildSystemPrompt({ mode }: SystemPromptParams): string {
     2. **Never re-read files you already read** in this conversation.
     3. **Batch your tool calls.** Call multiple tools in parallel when possible (e.g. read 5 files at once, not one at a time).
     4. **Use editFile for small changes** to existing files. Only use writeFile when creating new files or rewriting most of a file.`);
+  }
+
+  if (skills && skills.length > 0) {
+    parts.push(`\n## Active Skills\n`);
+    for (const skill of skills) {
+      parts.push(`### ${skill.name}\n${skill.content}`);
+    }
   }
 
   return parts.join('\n');

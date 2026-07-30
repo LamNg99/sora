@@ -16,6 +16,8 @@ export {
   APPROVAL_REQUIRED_TOOL_NAMES,
   getToolContracts,
   requiresToolApproval,
+  type LoadedSkill,
+  type McpToolDefinition,
   type ModeType,
   type ToolContracts,
 } from './schemas';

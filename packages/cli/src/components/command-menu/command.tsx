@@ -3,6 +3,8 @@ import {
   SessionsDialogContent,
   AgentsDialogContent,
   ModelsDialogContent,
+  McpDialogContent,
+  SkillsDialogContent,
 } from '../../dialogs';
 import { SUPPORTED_CHAT_MODELS } from '@sora/shared';
 import type { Command } from './types';
@@ -54,6 +56,28 @@ export const COMMANDS: Command[] = [
       ctx.dialog.open({
         title: 'Select Session',
         children: <SessionsDialogContent />,
+      });
+    },
+  },
+  {
+    name: 'skills',
+    description: 'Load or unload modular context skills',
+    value: '/skills',
+    action: (ctx) => {
+      ctx.dialog.open({
+        title: 'Skills',
+        children: <SkillsDialogContent />,
+      });
+    },
+  },
+  {
+    name: 'mcp',
+    description: 'View connected MCP servers and tools',
+    value: '/mcp',
+    action: (ctx) => {
+      ctx.dialog.open({
+        title: 'MCP Servers',
+        children: <McpDialogContent />,
       });
     },
   },

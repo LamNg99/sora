@@ -1,6 +1,16 @@
 import { z } from 'zod';
 import { tool } from 'ai';
 
+export type McpToolDefinition = {
+  description?: string;
+  inputSchema: unknown;
+};
+
+export type LoadedSkill = {
+  name: string;
+  content: string;
+};
+
 export const Mode = {
   AGENT: 'AGENT',
   ASK: 'ASK',
