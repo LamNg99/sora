@@ -24,13 +24,13 @@ export function RootLayout() {
     <ThemeProvider>
       <ToastProvider>
         <KeyboardLayerProvider>
-          <DialogProvider>
-            <PromptConfigProvider>
+          <PromptConfigProvider>
+            <DialogProvider>
               <ThemeRoot>
                 <Outlet />
               </ThemeRoot>
-            </PromptConfigProvider>
-          </DialogProvider>
+            </DialogProvider>
+          </PromptConfigProvider>
         </KeyboardLayerProvider>
       </ToastProvider>
     </ThemeProvider>

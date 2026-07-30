@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, readFileSync } from 'fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'fs';
 import { homedir } from 'os';
 import { join, basename, extname } from 'path';
 
@@ -27,15 +27,34 @@ function readSkillsFromDir(dir: string, source: 'global' | 'project'): Skill[] {
   if (!existsSync(dir)) return [];
   const skills: Skill[] = [];
   try {
-    for (const file of readdirSync(dir)) {
-      if (!file.endsWith('.md')) continue;
-      const name = basename(file, extname(file));
-      const raw = readFileSync(join(dir, file), 'utf-8');
-      const { description, content } = parseFrontmatter(raw);
-      if (content) skills.push({ name, description, content, source });
+    for (const entry of readdirSync(dir)) {
+      const entryPath = join(dir, entry);
+      try {
+        const stat = statSync(entryPath);
+        if (stat.isDirectory()) {
+          // Support {skill-name}/SKILL.md or {skill-name}/{skill-name}.md
+          const candidates = ['SKILL.md', `${entry}.md`];
+          for (const candidate of candidates) {
+            const filePath = join(entryPath, candidate);
+            if (existsSync(filePath)) {
+              const raw = readFileSync(filePath, 'utf-8');
+              const { description, content } = parseFrontmatter(raw);
+              if (content) skills.push({ name: entry, description, content, source });
+              break;
+            }
+          }
+        } else if (entry.endsWith('.md')) {
+          const name = basename(entry, extname(entry));
+          const raw = readFileSync(entryPath, 'utf-8');
+          const { description, content } = parseFrontmatter(raw);
+          if (content) skills.push({ name, description, content, source });
+        }
+      } catch {
+        // silently skip unreadable entries
+      }
     }
   } catch {
-    // silently skip unreadable dirs/files
+    // silently skip unreadable dirs
   }
   return skills;
 }

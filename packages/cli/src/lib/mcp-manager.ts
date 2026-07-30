@@ -45,6 +45,10 @@ class McpManager {
   }
 
   private async _connectServer(name: string, config: McpServerConfig): Promise<void> {
+    const deadline = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('Connection timed out')), 30_000),
+    );
+
     try {
       let transport;
 
@@ -72,11 +76,14 @@ class McpManager {
         });
       }
 
-      const client = await createMCPClient({ transport, clientName: 'sora-cli' });
+      const client = await Promise.race([
+        createMCPClient({ transport, clientName: 'sora-cli' }),
+        deadline,
+      ]);
       this.clients.set(name, client);
       this.connectedServers.push(name);
 
-      const { tools } = await client.listTools();
+      const { tools } = await Promise.race([client.listTools(), deadline]);
       for (const toolDef of tools) {
         const qualifiedName = `${name}__${toolDef.name}`;
         this.toolEntries.set(qualifiedName, { client, originalName: toolDef.name });
@@ -121,16 +128,16 @@ class McpManager {
     }
   }
 
-  toggleServerDisabled(name: string): void {
+  async toggleServerDisabled(name: string): Promise<void> {
     const config = loadMcpConfig();
     const server = config.mcpServers[name];
     if (!server) return;
     const nowDisabled = !server.disabled;
     setServerDisabled(name, nowDisabled);
     if (nowDisabled) {
-      void this._disconnectServer(name);
+      await this._disconnectServer(name);
     } else {
-      void this.reconnectServer(name);
+      await this.reconnectServer(name);
     }
   }
 

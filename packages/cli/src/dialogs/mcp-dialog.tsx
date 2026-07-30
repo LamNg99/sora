@@ -84,8 +84,23 @@ export function McpDialogContent() {
     } else if (key.name === 'd') {
       const name = serverNames[selectedIndex];
       if (!name) return;
-      mcpManager.toggleServerDisabled(name);
-      setTick((t) => t + 1);
+      const entry = entries.find((e) => e.name === name);
+      if (!entry) return;
+      const isEnabling = entry.status.kind === 'disabled';
+      if (isEnabling) {
+        setReconnecting((prev) => new Set(prev).add(name));
+      }
+      void mcpManager.toggleServerDisabled(name).finally(() => {
+        if (isEnabling) {
+          setReconnecting((prev) => {
+            const next = new Set(prev);
+            next.delete(name);
+            return next;
+          });
+        }
+        setTick((t) => t + 1);
+      });
+      if (!isEnabling) setTick((t) => t + 1);
     } else if (key.name === 'r') {
       const name = serverNames[selectedIndex];
       if (!name) return;
@@ -189,15 +204,19 @@ export function McpDialogContent() {
 
       {canAct ? (
         <box flexDirection="row" gap={3} paddingX={1}>
-          <text attributes={TextAttributes.DIM}>
-            <text fg="white" attributes={TextAttributes.BOLD}>d</text>{' '}
-            {selectedEntry.status.kind === 'disabled' ? 'enable' : 'disable'}
-          </text>
-          {selectedEntry.status.kind !== 'disabled' ? (
+          <box flexDirection="row" gap={1}>
+            <text fg="white" attributes={TextAttributes.BOLD}>d</text>
             <text attributes={TextAttributes.DIM}>
-              <text fg="white" attributes={TextAttributes.BOLD}>r</text>{' '}
-              {selectedEntry.hasOAuth ? 're-authenticate' : 'reconnect'}
+              {selectedEntry.status.kind === 'disabled' ? 'enable' : 'disable'}
             </text>
+          </box>
+          {selectedEntry.status.kind !== 'disabled' ? (
+            <box flexDirection="row" gap={1}>
+              <text fg="white" attributes={TextAttributes.BOLD}>r</text>
+              <text attributes={TextAttributes.DIM}>
+                {selectedEntry.hasOAuth ? 're-authenticate' : 'reconnect'}
+              </text>
+            </box>
           ) : null}
         </box>
       ) : null}

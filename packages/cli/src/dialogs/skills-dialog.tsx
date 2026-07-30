@@ -34,24 +34,16 @@ export function SkillsDialogContent() {
       }
       renderItem={(skill, isSelected) => {
         const loaded = loadedSkillNames.has(skill.name);
+        const indicator = loaded ? '✓' : ' ';
+        const label = skill.name.padEnd(24);
+        const meta = skill.description ?? skill.source;
         return (
-          <box flexDirection="row" gap={2} paddingX={1} width="100%">
-            <box width={2} flexShrink={0}>
-              <text selectable={false} fg={loaded ? 'green' : isSelected ? 'black' : 'gray'}>
-                {loaded ? '✓' : ' '}
-              </text>
-            </box>
-            <box flexShrink={0} width={22}>
-              <text selectable={false} fg={isSelected ? 'black' : 'white'}>
-                {skill.name}
-              </text>
-            </box>
-            <box flexGrow={1} flexShrink={1} overflow="hidden">
-              <text selectable={false} fg={isSelected ? 'black' : 'gray'} attributes={TextAttributes.DIM}>
-                {skill.description ?? (skill.source === 'project' ? 'project' : 'global')}
-              </text>
-            </box>
-          </box>
+          <text
+            selectable={false}
+            fg={isSelected ? 'black' : loaded ? 'green' : 'white'}
+          >
+            {`${indicator} ${label} ${meta}`}
+          </text>
         );
       }}
       getKey={(skill) => skill.name}
